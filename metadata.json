@@ -1,0 +1,6 @@
+
+{
+  "name": "Lídia Investe",
+  "description": "Um aplicativo completo para controle de investimentos em CDB, LCI, LTN e NTN-B com cálculos automáticos de valor futuro e monitoramento de garantia do FGC.",
+  "requestFramePermissions": []
+}
