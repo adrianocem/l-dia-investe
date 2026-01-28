@@ -198,16 +198,32 @@ const App: React.FC = () => {
               <div className="overflow-x-auto scrollbar-hide">
                 <table className="w-full text-left min-w-[700px]">
                   <thead className="bg-slate-50/50">
-                    <tr><th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Ativo</th><th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Valor Aplicado</th><th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Informal</th><th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">IR</th><th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Vencimento</th><th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Líquido Futuro</th><th className="px-6 py-4"></th></tr>
+                    <tr>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Ativo</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Valor Aplicado</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Data de Aplicação</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Vencimento</th>
+                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Líquido Futuro</th>
+                      <th className="px-6 py-4"></th>
+                    </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {investments.length === 0 ? (<tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400 italic text-sm">Nenhum investimento cadastrado.</td></tr>) : (
+                    {investments.length === 0 ? (
+                      <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">Nenhum investimento cadastrado.</td></tr>
+                    ) : (
                       investments.map(inv => (
                         <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-[10px] shrink-0">{inv.title}</div><div><div className="text-sm font-bold text-slate-800 truncate">{inv.bank}</div><div className="text-[10px] text-slate-400 uppercase font-bold">{inv.type}</div></div></div></td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-[10px] shrink-0">{inv.title}</div>
+                              <div>
+                                <div className="text-sm font-bold text-slate-800 truncate">{inv.bank}</div>
+                                <div className="text-[10px] text-slate-400 uppercase font-bold">{inv.type}</div>
+                              </div>
+                            </div>
+                          </td>
                           <td className="px-6 py-4"><div className="text-sm font-bold text-slate-700">{formatCurrency(inv.amount)}</div></td>
-                          <td className="px-6 py-4"><div className="text-xs text-slate-400">Qtd: {inv.quantity}</div></td>
-                          <td className="px-6 py-4"><span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-bold text-slate-500">{inv.incomeTax}%</span></td>
+                          <td className="px-6 py-4"><div className="text-sm text-slate-600">{formatDate(inv.startDate)}</div></td>
                           <td className="px-6 py-4"><div className="text-sm text-slate-600">{formatDate(inv.dueDate)}</div></td>
                           <td className="px-6 py-4"><div className="flex items-center gap-1 text-blue-600 font-black text-sm">{formatCurrency(inv.netFutureValue)}</div></td>
                           <td className="px-6 py-4 text-right">
