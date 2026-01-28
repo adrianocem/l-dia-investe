@@ -133,7 +133,10 @@ const App: React.FC = () => {
           <div className="bg-blue-600 p-2 rounded-lg text-white">
             <Wallet className="w-6 h-6" />
           </div>
-          <span className="text-xl font-black text-slate-800 tracking-tight">Lídia Investe</span>
+          <div className="flex flex-col">
+            <span className="text-xl font-black text-slate-800 tracking-tight">Lídia Investe</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest -mt-1">v. 1.0</span>
+          </div>
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
@@ -146,7 +149,13 @@ const App: React.FC = () => {
 
       {/* Header Mobile */}
       <header className="lg:hidden bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-2"><div className="bg-blue-600 p-1.5 rounded-lg text-white"><Wallet className="w-5 h-5" /></div><span className="font-black text-slate-800">Lídia Investe</span></div>
+        <div className="flex items-center gap-2">
+          <div className="bg-blue-600 p-1.5 rounded-lg text-white"><Wallet className="w-5 h-5" /></div>
+          <div className="flex flex-col">
+            <span className="font-black text-slate-800 text-sm leading-tight">Lídia Investe</span>
+            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">v. 1.0</span>
+          </div>
+        </div>
       </header>
 
       {/* Main Content */}
