@@ -130,8 +130,8 @@ const App: React.FC = () => {
       {/* Sidebar Desktop */}
       <aside className="w-64 bg-white border-r border-slate-200 hidden lg:flex flex-col h-full">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-          <div className="bg-blue-600 p-2 rounded-lg text-white">
-            <Wallet className="w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm border border-blue-100 shrink-0">
+            <img src="/app-icon.jpg" alt="Lídia Investe" className="w-full h-full object-cover" />
           </div>
           <div className="flex flex-col">
             <span className="text-xl font-black text-slate-800 tracking-tight">Lídia Investe</span>
@@ -150,7 +150,9 @@ const App: React.FC = () => {
       {/* Header Mobile */}
       <header className="lg:hidden bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-2">
-          <div className="bg-blue-600 p-1.5 rounded-lg text-white"><Wallet className="w-5 h-5" /></div>
+          <div className="w-8 h-8 rounded-lg overflow-hidden border border-blue-100 shrink-0">
+            <img src="/app-icon.jpg" alt="Lídia Investe" className="w-full h-full object-cover" />
+          </div>
           <div className="flex flex-col">
             <span className="font-black text-slate-800 text-sm leading-tight">Lídia Investe</span>
             <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">v. 1.0</span>
