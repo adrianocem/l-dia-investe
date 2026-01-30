@@ -10,16 +10,19 @@ export const calculateFutureValue = (
   investment: Partial<Investment>,
   marketRates: MarketRates
 ): CalculationResult => {
-  const { amount, interestRate, dueDate, type, incomeTax } = investment;
+  const { amount, interestRate, dueDate, startDate, type, incomeTax } = investment;
   
   if (!amount || !interestRate || !dueDate || !type) return { gross: 0, net: 0 };
 
   const tax = (incomeTax || 0) / 100;
-  const totalPrincipal = amount; // Quantidade desconsiderada no cálculo
+  const totalPrincipal = amount;
 
-  const today = new Date();
+  // Usa a data de aplicação (startDate) ou a data atual como fallback
+  const start = startDate ? new Date(startDate) : new Date();
   const end = new Date(dueDate);
-  const diffTime = Math.abs(end.getTime() - today.getTime());
+  
+  // Calcula o período em anos entre a data de aplicação e o vencimento
+  const diffTime = Math.abs(end.getTime() - start.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   const diffYears = diffDays / 365;
 
