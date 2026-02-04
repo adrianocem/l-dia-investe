@@ -4,16 +4,18 @@ import { Investment, MarketRates } from './types';
 import { InvestmentForm } from './components/InvestmentForm';
 import { StatsCard } from './components/StatsCard';
 import { FGCCard } from './components/FGCCard';
-import { formatCurrency, formatDate } from './utils/calculations';
+import { calculateFutureValue, formatCurrency, formatDate } from './utils/calculations';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
-import { Wallet, TrendingUp, Calendar, LayoutDashboard, List, Trash2, ShieldCheck, Plus, Pencil, Settings, Loader2 } from 'lucide-react';
+import { Wallet, TrendingUp, Calendar, LayoutDashboard, List, Trash2, ShieldCheck, Plus, Pencil, Settings, Loader2, ChevronUp, ChevronDown, ArrowUpDown, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import {
   fetchInvestments,
   addInvestment,
   updateInvestment,
   deleteInvestment,
   fetchMarketRates,
-  saveMarketRates
+  saveMarketRates,
+  updateInvestmentValues
 } from './services/investmentService';
 
 const App: React.FC = () => {
@@ -23,6 +25,9 @@ const App: React.FC = () => {
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  const [sortField, setSortField] = useState<'bank' | 'amount' | 'startDate' | 'dueDate' | 'netFutureValue'>('dueDate');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Carregar dados do Supabase ao iniciar
   useEffect(() => {
@@ -46,9 +51,32 @@ const App: React.FC = () => {
 
   // Salvar taxas de mercado quando alteradas
   const handleMarketRatesChange = useCallback(async (newRates: MarketRates) => {
+    setIsRecalculating(true);
     setMarketRates(newRates);
     await saveMarketRates(newRates);
-  }, []);
+
+    // Recalcular todos os investimentos com as novas taxas
+    const updatedInvestments = investments.map(inv => {
+      const { gross, net } = calculateFutureValue(inv, newRates);
+      return {
+        ...inv,
+        futureValue: gross,
+        netFutureValue: net
+      };
+    });
+
+    // Atualizar no estado local
+    setInvestments(updatedInvestments);
+
+    // Salvar no banco em lote (para performance)
+    try {
+      await updateInvestmentValues(updatedInvestments);
+    } catch (error) {
+      console.error('Erro ao atualizar valores futuros no banco:', error);
+    } finally {
+      setIsRecalculating(false);
+    }
+  }, [investments]);
 
   const handleAddInvestment = async (inv: Investment) => {
     setIsSaving(true);
@@ -103,6 +131,25 @@ const App: React.FC = () => {
     return Object.entries(banks).sort((a, b) => b[1] - a[1]);
   }, [investments]);
 
+  const sortedInvestments = useMemo(() => {
+    return [...investments].sort((a, b) => {
+      let aValue: any = a[sortField];
+      let bValue: any = b[sortField];
+
+      if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+      if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+
+      if (sortField === 'startDate' || sortField === 'dueDate') {
+        aValue = new Date(aValue).getTime();
+        bValue = new Date(bValue).getTime();
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [investments, sortField, sortDirection]);
+
   const chartData = useMemo(() => {
     const byType: Record<string, number> = {};
     investments.forEach(inv => {
@@ -112,6 +159,76 @@ const App: React.FC = () => {
   }, [investments]);
 
   const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+
+  const handleExportExcel = () => {
+    // Definir dados com valores numéricos puros para o Excel tratar corretamente
+    const exportData = investments.map(inv => ({
+      'Corretora': inv.broker,
+      'Banco Emissor': inv.bank,
+      'Título': inv.title,
+      'Rentabilidade': inv.type,
+      'Valor Aplicado (R$)': inv.amount,
+      'Quantidade': inv.quantity,
+      'Taxa de Juros (%)': inv.interestRate / 100,
+      'Data de Aplicação': new Date(inv.startDate),
+      'Vencimento': new Date(inv.dueDate),
+      'IR Estimado (%)': inv.incomeTax / 100,
+      'Valor Bruto Futuro': inv.futureValue,
+      'Valor Líquido Futuro': inv.netFutureValue
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+    // Configurar formatos numéricos específicos (z) para colunas selecionadas
+    // O formato abaixo é o "Contábil" aproximado:
+    const currencyFormat = '_-R$ * #,##0.00_-;-R$ * #,##0.00_-;_-R$ * "-"??_-;_-@_-';
+    const percentFormat = '0.00%';
+    const dateFormat = 'dd/mm/yyyy';
+
+    // Obter o range da planilha
+    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+
+    for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+      // Colunas de Moeda: E (4), K (10), L (11)
+      [4, 10, 11].forEach(C => {
+        const cell = worksheet[XLSX.utils.encode_cell({ c: C, r: R })];
+        if (cell) {
+          cell.t = 'n'; // Garante que é número
+          cell.z = currencyFormat;
+        }
+      });
+
+      // Colunas de Porcentagem: G (6), J (9)
+      [6, 9].forEach(C => {
+        const cell = worksheet[XLSX.utils.encode_cell({ c: C, r: R })];
+        if (cell) {
+          cell.t = 'n';
+          cell.z = percentFormat;
+        }
+      });
+
+      // Colunas de Data: H (7), I (8)
+      [7, 8].forEach(C => {
+        const cell = worksheet[XLSX.utils.encode_cell({ c: C, r: R })];
+        if (cell) {
+          cell.t = 'd';
+          cell.z = dateFormat;
+        }
+      });
+    }
+
+    // Ajustar largura das colunas para os dados caberem
+    worksheet['!cols'] = [
+      { wch: 22 }, { wch: 22 }, { wch: 10 }, { wch: 15 },
+      { wch: 18 }, { wch: 10 }, { wch: 15 }, { wch: 15 },
+      { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 18 }
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Meus Ativos");
+
+    XLSX.writeFile(workbook, `Lidia_Investe_Ativos_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
 
   // Tela de loading
   if (isLoading) {
@@ -196,24 +313,121 @@ const App: React.FC = () => {
               editingInvestment={editingInvestment}
             />
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between"><h3 className="text-lg font-bold text-slate-800">Meus Ativos</h3><span className="px-3 py-1 bg-slate-100 rounded-full text-xs font-bold text-slate-500">{investments.length}</span></div>
+              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-slate-800">
+                  Meus Ativos <span className="ml-2 text-slate-400 font-medium">({investments.length})</span>
+                </h3>
+                <button
+                  onClick={handleExportExcel}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-all active:scale-95"
+                  title="Exportar para Excel"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Exportar Planilha</span>
+                </button>
+              </div>
               <div className="overflow-x-auto scrollbar-hide">
                 <table className="w-full text-left min-w-[700px]">
                   <thead className="bg-slate-50/50">
                     <tr>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Ativo</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Valor Aplicado</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Data de Aplicação</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Vencimento</th>
-                      <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Líquido Futuro</th>
+                      <th
+                        className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors"
+                        onClick={() => {
+                          if (sortField === 'bank') {
+                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setSortField('bank');
+                            setSortDirection('asc');
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          Ativo
+                          {sortField === 'bank' ? (
+                            sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                          ) : <ArrowUpDown className="w-3 h-3 opacity-30" />}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors"
+                        onClick={() => {
+                          if (sortField === 'amount') {
+                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setSortField('amount');
+                            setSortDirection('desc');
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          Valor Aplicado
+                          {sortField === 'amount' ? (
+                            sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                          ) : <ArrowUpDown className="w-3 h-3 opacity-30" />}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors"
+                        onClick={() => {
+                          if (sortField === 'startDate') {
+                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setSortField('startDate');
+                            setSortDirection('desc');
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          Data de Aplicação
+                          {sortField === 'startDate' ? (
+                            sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                          ) : <ArrowUpDown className="w-3 h-3 opacity-30" />}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors"
+                        onClick={() => {
+                          if (sortField === 'dueDate') {
+                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setSortField('dueDate');
+                            setSortDirection('asc');
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          Vencimento
+                          {sortField === 'dueDate' ? (
+                            sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                          ) : <ArrowUpDown className="w-3 h-3 opacity-30" />}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors"
+                        onClick={() => {
+                          if (sortField === 'netFutureValue') {
+                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setSortField('netFutureValue');
+                            setSortDirection('desc');
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          Líquido Futuro
+                          {sortField === 'netFutureValue' ? (
+                            sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                          ) : <ArrowUpDown className="w-3 h-3 opacity-30" />}
+                        </div>
+                      </th>
                       <th className="px-6 py-4"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {investments.length === 0 ? (
+                    {sortedInvestments.length === 0 ? (
                       <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic text-sm">Nenhum investimento cadastrado.</td></tr>
                     ) : (
-                      investments.map(inv => (
+                      sortedInvestments.map(inv => (
                         <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
@@ -299,6 +513,29 @@ const App: React.FC = () => {
                     </div>
                     <p className="text-[10px] text-slate-400 leading-tight">Inflação projetada para os próximos 12 meses (usada em títulos IPCA+).</p>
                   </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => handleMarketRatesChange(marketRates)}
+                    disabled={isRecalculating}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white transition-all shadow-lg ${isRecalculating
+                      ? 'bg-slate-400 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
+                      }`}
+                  >
+                    {isRecalculating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Atualizando...
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="w-4 h-4" />
+                        Aplicar Novas Taxas
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-100 flex gap-3">

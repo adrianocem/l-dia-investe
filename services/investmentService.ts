@@ -152,3 +152,16 @@ export async function saveMarketRates(rates: MarketRates): Promise<boolean> {
 
   return true;
 }
+
+export async function updateInvestmentValues(investments: Investment[]): Promise<boolean> {
+  const rows = investments.map(toSnakeCase);
+  const { error } = await supabase
+    .from('investments')
+    .upsert(rows);
+
+  if (error) {
+    console.error('Erro ao atualizar investimentos em massa:', error);
+    return false;
+  }
+  return true;
+}
