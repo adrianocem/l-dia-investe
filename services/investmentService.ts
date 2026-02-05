@@ -6,6 +6,7 @@ function toSnakeCase(investment: Investment) {
   return {
     id: investment.id,
     broker: investment.broker,
+    conglomerate: investment.conglomerate,
     bank: investment.bank,
     title: investment.title,
     type: investment.type,
@@ -26,6 +27,7 @@ function toCamelCase(row: any): Investment {
   return {
     id: row.id,
     broker: row.broker,
+    conglomerate: row.conglomerate,
     bank: row.bank,
     title: row.title,
     type: row.type,

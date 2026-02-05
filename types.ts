@@ -15,8 +15,9 @@ export enum InvestmentType {
 export interface Investment {
   id: string;
   broker: string;
+  conglomerate: string;
   bank: string;
-  title: InvestmentTitle;
+  title: string;
   type: InvestmentType;
   amount: number;
   quantity: number;

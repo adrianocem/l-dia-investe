@@ -29,9 +29,17 @@ const MAJOR_BANKS = [
   "Nubank", "Sofisa Direto", "Banco Bari", "Banco Agibank"
 ].sort();
 
+const MAJOR_CONGLOMERATES = [
+  "Itaú Unibanco", "Bradesco", "Santander", "Banco do Brasil",
+  "Caixa Econômica Federal", "BTG Pactual", "XP Inc", "Safra",
+  "Votorantim", "BNDES", "Inter", "Nubank", "C6 Bank", "Pan",
+  "Daycoval", "BMG", "Original", "ABC Brasil", "Pine", "Bari", "Sofisa"
+].sort();
+
 export const InvestmentForm: React.FC<Props> = ({ onAdd, onUpdate, marketRates, editingInvestment }) => {
   const [formData, setFormData] = useState<Partial<Investment>>({
     broker: '',
+    conglomerate: '',
     bank: '',
     title: InvestmentTitle.CDB,
     type: InvestmentType.CDI,
@@ -46,9 +54,13 @@ export const InvestmentForm: React.FC<Props> = ({ onAdd, onUpdate, marketRates, 
   const [fvPreview, setFvPreview] = useState<CalculationResult>({ gross: 0, net: 0 });
   const [customBanks, setCustomBanks] = useState<CustomBank[]>([]);
   const [showCustomBroker, setShowCustomBroker] = useState(false);
+  const [showCustomConglomerate, setShowCustomConglomerate] = useState(false);
   const [showCustomBank, setShowCustomBank] = useState(false);
+  const [showCustomTitle, setShowCustomTitle] = useState(false);
   const [newBrokerName, setNewBrokerName] = useState('');
+  const [newConglomerateName, setNewConglomerateName] = useState('');
   const [newBankName, setNewBankName] = useState('');
+  const [newTitleName, setNewTitleName] = useState('');
 
   // Load custom banks on mount
   useEffect(() => {
@@ -65,6 +77,7 @@ export const InvestmentForm: React.FC<Props> = ({ onAdd, onUpdate, marketRates, 
     } else {
       setFormData({
         broker: '',
+        conglomerate: '',
         bank: '',
         title: InvestmentTitle.CDB,
         type: InvestmentType.CDI,
@@ -103,6 +116,7 @@ export const InvestmentForm: React.FC<Props> = ({ onAdd, onUpdate, marketRates, 
 
     setFormData({
       broker: '',
+      conglomerate: '',
       bank: '',
       title: InvestmentTitle.CDB,
       type: InvestmentType.CDI,
@@ -196,6 +210,58 @@ export const InvestmentForm: React.FC<Props> = ({ onAdd, onUpdate, marketRates, 
           </div>
 
           <div>
+            <label className={labelClass}>Conglomerado</label>
+            {showCustomConglomerate ? (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Digite o nome do conglomerado"
+                  className={inputClass}
+                  value={newConglomerateName}
+                  onChange={e => setNewConglomerateName(e.target.value)}
+                  onBlur={async () => {
+                    if (newConglomerateName.trim()) {
+                      const saved = await addCustomBank(newConglomerateName, false, true, false);
+                      if (saved) {
+                        setCustomBanks(prev => [...prev, saved]);
+                        setFormData({ ...formData, conglomerate: saved.name });
+                      }
+                    }
+                    setShowCustomConglomerate(false);
+                    setNewConglomerateName('');
+                  }}
+                  autoFocus
+                />
+                <button type="button" onClick={() => { setShowCustomConglomerate(false); setNewConglomerateName(''); }} className="px-3 py-2 text-slate-400 hover:text-slate-600">
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <select
+                  required
+                  className={selectClass}
+                  value={formData.conglomerate}
+                  onChange={e => {
+                    if (e.target.value === '__ADD_NEW__') {
+                      setShowCustomConglomerate(true);
+                    } else {
+                      setFormData({ ...formData, conglomerate: e.target.value });
+                    }
+                  }}
+                >
+                  <option value="">Selecione o conglomerado (opcional)</option>
+                  {[...MAJOR_CONGLOMERATES, ...customBanks.filter(b => b.isConglomerate).map(b => b.name)].sort().map(congl => <option key={congl} value={congl}>{congl}</option>)}
+                  <option value="__ADD_NEW__">+ Adicionar outro...</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                  <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
             <label className={labelClass}>Banco Emissor</label>
             {showCustomBank ? (
               <div className="flex gap-2">
@@ -207,7 +273,7 @@ export const InvestmentForm: React.FC<Props> = ({ onAdd, onUpdate, marketRates, 
                   onChange={e => setNewBankName(e.target.value)}
                   onBlur={async () => {
                     if (newBankName.trim()) {
-                      const saved = await addCustomBank(newBankName, false);
+                      const saved = await addCustomBank(newBankName, false, false, false);
                       if (saved) {
                         setCustomBanks(prev => [...prev, saved]);
                         setFormData({ ...formData, bank: saved.name });
@@ -237,7 +303,7 @@ export const InvestmentForm: React.FC<Props> = ({ onAdd, onUpdate, marketRates, 
                   }}
                 >
                   <option value="" disabled>Selecione o banco</option>
-                  {[...MAJOR_BANKS, ...customBanks.filter(b => !b.isBroker).map(b => b.name)].sort().map(bank => <option key={bank} value={bank}>{bank}</option>)}
+                  {[...MAJOR_BANKS, ...customBanks.filter(b => !b.isBroker && !b.isConglomerate && !b.isTitle).map(b => b.name)].sort().map(bank => <option key={bank} value={bank}>{bank}</option>)}
                   <option value="__ADD_NEW__">+ Adicionar outro...</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
@@ -249,14 +315,55 @@ export const InvestmentForm: React.FC<Props> = ({ onAdd, onUpdate, marketRates, 
 
           <div>
             <label className={labelClass}>Título</label>
-            <div className="relative">
-              <select className={selectClass} value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value as InvestmentTitle })}>
-                {Object.values(InvestmentTitle).map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
-                <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+            {showCustomTitle ? (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Digite o nome do título"
+                  className={inputClass}
+                  value={newTitleName}
+                  onChange={e => setNewTitleName(e.target.value)}
+                  onBlur={async () => {
+                    if (newTitleName.trim()) {
+                      const saved = await addCustomBank(newTitleName, false, false, true);
+                      if (saved) {
+                        setCustomBanks(prev => [...prev, saved]);
+                        setFormData({ ...formData, title: saved.name });
+                      }
+                    }
+                    setShowCustomTitle(false);
+                    setNewTitleName('');
+                  }}
+                  autoFocus
+                />
+                <button type="button" onClick={() => { setShowCustomTitle(false); setNewTitleName(''); }} className="px-3 py-2 text-slate-400 hover:text-slate-600">
+                  ✕
+                </button>
               </div>
-            </div>
+            ) : (
+              <div className="relative">
+                <select
+                  required
+                  className={selectClass}
+                  value={formData.title}
+                  onChange={e => {
+                    if (e.target.value === '__ADD_NEW__') {
+                      setShowCustomTitle(true);
+                    } else {
+                      setFormData({ ...formData, title: e.target.value });
+                    }
+                  }}
+                >
+                  <option value="" disabled>Selecione o título</option>
+                  {Object.values(InvestmentTitle).map(t => <option key={t} value={t}>{t}</option>)}
+                  {customBanks.filter(b => b.isTitle).map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
+                  <option value="__ADD_NEW__">+ Adicionar outro...</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                  <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                </div>
+              </div>
+            )}
           </div>
 
           <div>

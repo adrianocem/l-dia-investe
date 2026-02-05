@@ -26,7 +26,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
-  const [sortField, setSortField] = useState<'bank' | 'amount' | 'startDate' | 'dueDate' | 'netFutureValue'>('dueDate');
+  const [sortField, setSortField] = useState<'conglomerate' | 'bank' | 'amount' | 'startDate' | 'dueDate' | 'netFutureValue'>('dueDate');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [showUpdates, setShowUpdates] = useState(false);
 
@@ -126,8 +126,12 @@ const App: React.FC = () => {
   const fgcExposure = useMemo(() => {
     const banks: Record<string, number> = {};
     investments.forEach(inv => {
-      const bankName = inv.bank.trim().toUpperCase();
-      banks[bankName] = (banks[bankName] || 0) + (inv.futureValue || 0);
+      // Usa o conglomerado se houver, senão usa o próprio banco
+      const institutionName = (inv.conglomerate && inv.conglomerate.trim() !== '')
+        ? inv.conglomerate.trim().toUpperCase()
+        : inv.bank.trim().toUpperCase();
+
+      banks[institutionName] = (banks[institutionName] || 0) + (inv.futureValue || 0);
     });
     return Object.entries(banks).sort((a, b) => b[1] - a[1]);
   }, [investments]);
@@ -165,6 +169,7 @@ const App: React.FC = () => {
     // Definir dados com valores numéricos puros para o Excel tratar corretamente
     const exportData = investments.map(inv => ({
       'Corretora': inv.broker,
+      'Conglomerado': inv.conglomerate || inv.bank,
       'Banco Emissor': inv.bank,
       'Título': inv.title,
       'Rentabilidade': inv.type,
@@ -220,7 +225,7 @@ const App: React.FC = () => {
 
     // Ajustar largura das colunas para os dados caberem
     worksheet['!cols'] = [
-      { wch: 22 }, { wch: 22 }, { wch: 10 }, { wch: 15 },
+      { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 10 }, { wch: 15 },
       { wch: 18 }, { wch: 10 }, { wch: 15 }, { wch: 15 },
       { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 18 }
     ];
@@ -418,6 +423,24 @@ const App: React.FC = () => {
                       <th
                         className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors"
                         onClick={() => {
+                          if (sortField === 'conglomerate') {
+                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                          } else {
+                            setSortField('conglomerate');
+                            setSortDirection('asc');
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          Conglomerado
+                          {sortField === 'conglomerate' ? (
+                            sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                          ) : <ArrowUpDown className="w-3 h-3 opacity-30" />}
+                        </div>
+                      </th>
+                      <th
+                        className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors"
+                        onClick={() => {
                           if (sortField === 'bank') {
                             setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
                           } else {
@@ -427,7 +450,7 @@ const App: React.FC = () => {
                         }}
                       >
                         <div className="flex items-center gap-2">
-                          Ativo
+                          Banco / Título
                           {sortField === 'bank' ? (
                             sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
                           ) : <ArrowUpDown className="w-3 h-3 opacity-30" />}
@@ -514,6 +537,11 @@ const App: React.FC = () => {
                     ) : (
                       sortedInvestments.map(inv => (
                         <tr key={inv.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="text-sm font-bold text-slate-800 truncate">
+                              {inv.conglomerate || <span className="text-slate-400 italic">Próprio Banco</span>}
+                            </div>
+                          </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-[10px] shrink-0">{inv.title}</div>
